@@ -35,7 +35,7 @@ if st.button("Add/Update Signal & Scan"):
             results = []
             for m in markets:
                 q = m.get("question", "").lower()
-                vol = (round(float(m.get("volume", 0))
+                vol = round(float(m.get("volume", 0)))
                 keywords = ["gross", "box office", "opening weekend", "scream", "avengers", "mario", "spider-man", "highest grossing", "grossing", "domestic gross", "opening", "weekend", "goat"]
                 if any(kw in q for kw in keywords):
                     adj = adjustment if market_name.lower() in q else 0.0
