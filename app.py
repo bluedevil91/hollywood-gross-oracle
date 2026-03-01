@@ -1,3 +1,8 @@
+import streamlit as st
+import requests
+
+st.set_page_config(page_title="Hollywood Gross Oracle - PG", layout="wide")
+
 st.title("Hollywood Gross Oracle")
 st.markdown("**Your private Polymarket edge tool** — simulation only. Powered by your insider network.")
 
