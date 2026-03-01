@@ -38,7 +38,7 @@ with col_market:
 with col_adj:
     adjustment = st.number_input("Adjustment (e.g. +0.24 for +24% beat)", value=0.0, step=0.01, format="%.2f")
 
-if st.button("Scan Markets with Signal"):
+if st.button("Scan Markets"):
     with st.spinner("Scanning Polymarket..."):
         url = "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=200&order=volume&ascending=false"
         try:
@@ -59,20 +59,22 @@ if st.button("Scan Markets with Signal"):
                     fair = crowd * (1 + adj)
                     edge = 0.10 + adj * 3
                     
-                    if edge > 0.10:
-                        dir = "BUY YES" if adj > 0 else "SELL YES"
-                        size = min(max_risk, vol / 50000 * 1000)
-                        results.append({
-                            "Market": m["question"],
-                            "Volume": f"${vol:,}",
-                            "Your Signal": f"{adj:+.2f}",
-                            "Fair Guess": f"${fair:,.0f}M",
-                            "Edge": f"{edge*100:.1f}%",
-                            "Trade Idea": f"{dir} ~${size:,.0f}",
-                            "Retrading": "Yes – anytime before resolution"
-                        })
+                    dir = "BUY YES" if adj > 0 else "SELL YES" if adj < 0 else "HOLD / MONITOR"
+                    size = min(max_risk, vol / 50000 * 1000) if edge > 0.10 else 0
+                    trade_idea = f"{dir} ~${size:,.0f}" if edge > 0.10 else "No strong edge"
+                    
+                    results.append({
+                        "Market": m["question"],
+                        "Volume": f"${vol:,}",
+                        "Your Signal": f"{adj:+.2f}",
+                        "Crowd Guess": f"${crowd:,.0f}M",
+                        "Fair Guess": f"${fair:,.0f}M",
+                        "Edge": f"{edge*100:.1f}%",
+                        "Trade Idea": trade_idea,
+                        "Retrading": "Yes – anytime before resolution"
+                    })
             
-            # Fallback: add known markets if API scan was empty or low
+            # Fallback: show known markets if API scan was empty or low
             if not found_in_api or len(results) == 0:
                 st.warning("Limited results from API scan — showing known active markets.")
                 for known in known_markets:
@@ -80,24 +82,27 @@ if st.button("Scan Markets with Signal"):
                     crowd = 59.0 if "Scream 7" in known else 10.0 if "GOAT" in known else 100.0
                     fair = crowd * (1 + adj)
                     edge = 0.10 + adj * 3
-                    if edge > 0.10:
-                        dir = "BUY YES" if adj > 0 else "SELL YES"
-                        size = min(max_risk, 10000)  # conservative fallback size
-                        results.append({
-                            "Market": known,
-                            "Volume": "N/A (fallback)",
-                            "Your Signal": f"{adj:+.2f}",
-                            "Fair Guess": f"${fair:,.0f}M",
-                            "Edge": f"{edge*100:.1f}%",
-                            "Trade Idea": f"{dir} ~${size:,.0f}",
-                            "Retrading": "Yes – anytime before resolution"
-                        })
+                    
+                    dir = "BUY YES" if adj > 0 else "SELL YES" if adj < 0 else "HOLD / MONITOR"
+                    size = min(max_risk, 10000) if edge > 0.10 else 0
+                    trade_idea = f"{dir} ~${size:,.0f}" if edge > 0.10 else "No strong edge"
+                    
+                    results.append({
+                        "Market": known,
+                        "Volume": "N/A (fallback)",
+                        "Your Signal": f"{adj:+.2f}",
+                        "Crowd Guess": f"${crowd:,.0f}M",
+                        "Fair Guess": f"${fair:,.0f}M",
+                        "Edge": f"{edge*100:.1f}%",
+                        "Trade Idea": trade_idea,
+                        "Retrading": "Yes – anytime before resolution"
+                    })
             
             if results:
-                st.success(f"Found {len(results)} result(s)!")
+                st.success(f"Showing {len(results)} market(s) — edge highlighted when >10%")
                 st.table(results)
             else:
-                st.info("No strong edge yet — try a higher adjustment or different market.")
+                st.info("No markets matched. Try a different adjustment or market.")
         
         except Exception as e:
             st.error(f"Scan failed: {str(e)}. Check internet or try again.")
