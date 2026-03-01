@@ -1,5 +1,7 @@
 import streamlit as st
 import requests
+import time
+from datetime import datetime
 
 st.set_page_config(page_title="Hollywood Gross Oracle - PG", layout="wide")
 
@@ -15,7 +17,7 @@ with col2:
 max_risk = bankroll * (risk_pct / 100)
 st.markdown(f"**Max risk per trade: ${max_risk:,.0f}** ({risk_pct}% rule)")
 
-st.info("Simulation mode only — no real money traded. For strategy testing.")
+st.info("Simulation mode only — no real money traded. For strategy testing. Auto-scans every 10 minutes.")
 
 # Known markets for dropdown + fallback
 known_markets = [
@@ -30,15 +32,38 @@ known_markets = [
     "Wuthering Heights Third Weekend Box Office"
 ]
 
+# Session state for auto-scan
+if 'last_scan_time' not in st.session_state:
+    st.session_state.last_scan_time = time.time()
+if 'selected_market' not in st.session_state:
+    st.session_state.selected_market = known_markets[0]
+if 'adjustment' not in st.session_state:
+    st.session_state.adjustment = 0.0
+
 # Expert signal input with dropdown
 st.subheader("Enter Your Expert Signal")
 col_market, col_adj = st.columns([3, 2])
 with col_market:
-    selected_market = st.selectbox("Select Market", known_markets, index=0)
+    selected_market = st.selectbox("Select Market", known_markets, index=known_markets.index(st.session_state.selected_market))
 with col_adj:
-    adjustment = st.number_input("Adjustment (e.g. +0.24 for +24% beat)", value=0.0, step=0.01, format="%.2f")
+    adjustment = st.number_input("Adjustment (e.g. +0.24 for +24% beat)", value=st.session_state.adjustment, step=0.01, format="%.2f")
 
-if st.button("Scan Markets"):
+# Update session state
+st.session_state.selected_market = selected_market
+st.session_state.adjustment = adjustment
+
+# Auto-scan logic
+current_time = time.time()
+time_since_last_scan = current_time - st.session_state.last_scan_time
+minutes_left = 10 - int(time_since_last_scan // 60)
+seconds_left = 60 - int(time_since_last_scan % 60)
+
+st.markdown(f"**Next auto-scan in {minutes_left} min {seconds_left} sec** (refreshes automatically)")
+
+# Run scan if button clicked or 10 minutes passed
+should_scan = st.button("Scan Now") or time_since_last_scan >= 600
+
+if should_scan:
     with st.spinner("Scanning Polymarket..."):
         url = "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=200&order=volume&ascending=false"
         try:
@@ -74,9 +99,9 @@ if st.button("Scan Markets"):
                         "Retrading": "Yes – anytime before resolution"
                     })
             
-            # Fallback: show known markets if API scan was empty or low
+            # Fallback when API quiet
             if not found_in_api or len(results) == 0:
-                st.warning("Limited results from API scan — showing known active markets.")
+                st.warning("Limited API results — showing known active markets.")
                 for known in known_markets:
                     adj = adjustment if selected_market == known else 0.0
                     crowd = 59.0 if "Scream 7" in known else 10.0 if "GOAT" in known else 100.0
@@ -97,6 +122,9 @@ if st.button("Scan Markets"):
                         "Trade Idea": trade_idea,
                         "Retrading": "Yes – anytime before resolution"
                     })
+            
+            # Update last scan time
+            st.session_state.last_scan_time = current_time
             
             if results:
                 st.success(f"Showing {len(results)} market(s) — edge highlighted when >10%")
