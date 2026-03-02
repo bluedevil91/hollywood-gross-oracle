@@ -32,7 +32,7 @@ known_markets = [
     "Wuthering Heights Third Weekend Box Office"
 ]
 
-# Session state
+# Session state for auto-scan
 if 'last_scan_time' not in st.session_state:
     st.session_state.last_scan_time = time.time()
 if 'selected_market' not in st.session_state:
@@ -90,7 +90,7 @@ if should_scan:
                     
                     results.append({
                         "Market": m["question"],
-                        "Polymarket Link": polymarket_url,
+                        "Polymarket URL": polymarket_url,
                         "Volume": f"${vol:,}",
                         "Your Signal": f"{adj:+.2f}",
                         "Crowd Guess": f"${crowd:,.0f}M",
@@ -118,7 +118,7 @@ if should_scan:
                     
                     results.append({
                         "Market": known,
-                        "Polymarket Link": polymarket_url,
+                        "Polymarket URL": polymarket_url,
                         "Volume": "N/A (fallback)",
                         "Your Signal": f"{adj:+.2f}",
                         "Crowd Guess": f"${crowd:,.0f}M",
@@ -133,6 +133,9 @@ if should_scan:
             if results:
                 st.success(f"Showing {len(results)} market(s) — edge >10% highlighted")
                 df = pd.DataFrame(results)
+                
+                # Hide link column
+                df_display = df.drop(columns=["Polymarket URL"])
                 
                 # Style
                 def highlight_trade(val):
@@ -151,13 +154,13 @@ if should_scan:
                     return ''
                 
                 def make_clickable(val, row):
-                    link = row['Polymarket Link']
+                    link = row['Polymarket URL']
                     return f'<a href="{link}" target="_blank">{val}</a>'
                 
                 # Apply styles
-                styled_df = df.style.applymap(highlight_trade, subset=['Trade Idea']) \
-                                    .applymap(highlight_edge, subset=['Edge']) \
-                                    .format({"Market": lambda x: make_clickable(x, df.loc[df['Market'] == x].iloc[0])})
+                styled_df = df_display.style.applymap(highlight_trade, subset=['Trade Idea']) \
+                                            .applymap(highlight_edge, subset=['Edge']) \
+                                            .format({"Market": lambda x: make_clickable(x, df.loc[df_display['Market'] == x].iloc[0])})
                 
                 st.dataframe(styled_df, use_container_width=True)
             else:
