@@ -40,7 +40,7 @@ if 'selected_market' not in st.session_state:
 if 'adjustment' not in st.session_state:
     st.session_state.adjustment = 0.0
 
-# Signal input
+# Expert signal input with dropdown
 st.subheader("Enter Your Expert Signal")
 col_market, col_adj = st.columns([3, 2])
 with col_market:
@@ -51,7 +51,7 @@ with col_adj:
 st.session_state.selected_market = selected_market
 st.session_state.adjustment = adjustment
 
-# Countdown
+# Auto-scan countdown
 current_time = time.time()
 time_since_last_scan = current_time - st.session_state.last_scan_time
 minutes_left = 10 - int(time_since_last_scan // 60)
