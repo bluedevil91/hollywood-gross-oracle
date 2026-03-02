@@ -8,7 +8,7 @@ st.set_page_config(page_title="Hollywood Gross Oracle - PG", layout="wide")
 st.title("Hollywood Gross Oracle")
 st.markdown("**Your private Polymarket edge tool** — simulation only. Powered by your insider network.")
 
-# Bankroll & risk settings
+# Bankroll & risk
 col1, col2 = st.columns(2)
 with col1:
     bankroll = st.number_input("Simulation Bankroll ($)", min_value=10000, value=250000, step=50000)
@@ -17,9 +17,9 @@ with col2:
 max_risk = bankroll * (risk_pct / 100)
 st.markdown(f"**Max risk per trade: ${max_risk:,.0f}** ({risk_pct}% rule)")
 
-st.info("Simulation mode only — no real money traded. For strategy testing. Auto-scans every 10 minutes.")
+st.info("Simulation mode only — no real money traded. Auto-scans every 10 minutes.")
 
-# Known markets for dropdown + fallback
+# Known markets
 known_markets = [
     "Scream 7 Opening Weekend Box Office",
     "Highest Grossing Movie in 2026",
@@ -32,7 +32,7 @@ known_markets = [
     "Wuthering Heights Third Weekend Box Office"
 ]
 
-# Session state for auto-scan
+# Session state
 if 'last_scan_time' not in st.session_state:
     st.session_state.last_scan_time = time.time()
 if 'selected_market' not in st.session_state:
@@ -40,7 +40,7 @@ if 'selected_market' not in st.session_state:
 if 'adjustment' not in st.session_state:
     st.session_state.adjustment = 0.0
 
-# Expert signal input with dropdown
+# Signal input
 st.subheader("Enter Your Expert Signal")
 col_market, col_adj = st.columns([3, 2])
 with col_market:
@@ -48,18 +48,16 @@ with col_market:
 with col_adj:
     adjustment = st.number_input("Adjustment (e.g. +0.24 for +24% beat)", value=st.session_state.adjustment, step=0.01, format="%.2f")
 
-# Update session state
 st.session_state.selected_market = selected_market
 st.session_state.adjustment = adjustment
 
-# Auto-scan countdown
+# Countdown
 current_time = time.time()
 time_since_last_scan = current_time - st.session_state.last_scan_time
 minutes_left = 10 - int(time_since_last_scan // 60)
 seconds_left = 60 - int(time_since_last_scan % 60)
 st.markdown(f"**Next auto-scan in {minutes_left} min {seconds_left} sec** (refreshes automatically)")
 
-# Run scan if button clicked or 10 minutes passed
 should_scan = st.button("Scan Now") or time_since_last_scan >= 600
 
 if should_scan:
@@ -87,13 +85,12 @@ if should_scan:
                     size = min(max_risk, vol / 50000 * 1000) if edge > 0.10 else 0
                     trade_idea = f"{dir} ~${size:,.0f}" if edge > 0.10 else "No strong edge"
                     
-                    # Clickable Polymarket link
                     market_slug = m.get("slug", "")
                     polymarket_url = f"https://polymarket.com/event/{market_slug}" if market_slug else "https://polymarket.com"
-                    market_link = f"<a href='{polymarket_url}' target='_blank'>{m['question']}</a>"
                     
                     results.append({
-                        "Market": market_link,
+                        "Market": m["question"],
+                        "Polymarket Link": polymarket_url,
                         "Volume": f"${vol:,}",
                         "Your Signal": f"{adj:+.2f}",
                         "Crowd Guess": f"${crowd:,.0f}M",
@@ -118,10 +115,10 @@ if should_scan:
                     
                     slug = known.lower().replace(" ", "-").replace(":", "").replace("(", "").replace(")", "")
                     polymarket_url = f"https://polymarket.com/event/{slug}"
-                    market_link = f"<a href='{polymarket_url}' target='_blank'>{known}</a>"
                     
                     results.append({
-                        "Market": market_link,
+                        "Market": known,
+                        "Polymarket Link": polymarket_url,
                         "Volume": "N/A (fallback)",
                         "Your Signal": f"{adj:+.2f}",
                         "Crowd Guess": f"${crowd:,.0f}M",
@@ -137,22 +134,28 @@ if should_scan:
                 st.success(f"Showing {len(results)} market(s) — edge >10% highlighted")
                 df = pd.DataFrame(results)
                 
-                # Style: green BUY, red SELL, green background for strong edge
+                # Hide link column (we'll use it for hyperlinks in Market)
+                df_display = df.drop(columns=["Polymarket Link"])
+                
+                # Style
+                def make_clickable(val, link):
+                    return f'<a href="{link}" target="_blank">{val}</a>'
+                
                 def highlight_trade(val):
                     if 'BUY' in str(val):
-                        return 'color: green; font-weight: bold'
+                        return 'background-color: #d4edda; color: #155724; font-weight: bold'
                     elif 'SELL' in str(val):
-                        return 'color: red; font-weight: bold'
+                        return 'background-color: #f8d7da; color: #721c24; font-weight: bold'
                     return ''
                 
                 def highlight_edge(val):
                     if float(val.strip('%')) > 10:
-                        return 'background-color: rgba(0, 255, 0, 0.2); font-weight: bold'
+                        return 'background-color: #d4edda; font-weight: bold'
                     return ''
                 
-                styled_df = df.style.applymap(highlight_trade, subset=['Trade Idea']) \
-                                    .applymap(highlight_edge, subset=['Edge']) \
-                                    .format({"Market": lambda x: x})  # allow HTML
+                styled_df = df_display.style.applymap(highlight_trade, subset=['Trade Idea']) \
+                                            .applymap(highlight_edge, subset=['Edge']) \
+                                            .format({"Market": lambda x: make_clickable(x, df.loc[df_display.index[df_display['Market'] == x].index[0], "Polymarket Link"])})
                 
                 st.dataframe(styled_df, use_container_width=True)
             else:
