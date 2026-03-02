@@ -90,7 +90,7 @@ if should_scan:
                     # Clickable Polymarket link
                     market_slug = m.get("slug", "")
                     polymarket_url = f"https://polymarket.com/event/{market_slug}" if market_slug else "https://polymarket.com"
-                    market_link = f"[{m['question']}]({polymarket_url})"
+                    market_link = f"<a href='{polymarket_url}' target='_blank'>{m['question']}</a>"
                     
                     results.append({
                         "Market": market_link,
@@ -118,7 +118,7 @@ if should_scan:
                     
                     slug = known.lower().replace(" ", "-").replace(":", "").replace("(", "").replace(")", "")
                     polymarket_url = f"https://polymarket.com/event/{slug}"
-                    market_link = f"[{known}]({polymarket_url})"
+                    market_link = f"<a href='{polymarket_url}' target='_blank'>{known}</a>"
                     
                     results.append({
                         "Market": market_link,
@@ -131,24 +131,28 @@ if should_scan:
                         "Retrading": "Yes – anytime before resolution"
                     })
             
-            # Update last scan time
             st.session_state.last_scan_time = current_time
             
             if results:
                 st.success(f"Showing {len(results)} market(s) — edge >10% highlighted")
                 df = pd.DataFrame(results)
                 
-                # Style the table
+                # Style: green BUY, red SELL, green background for strong edge
                 def highlight_trade(val):
-                    color = 'green' if 'BUY' in str(val) else 'red' if 'SELL' in str(val) else 'black'
-                    return f'color: {color}; font-weight: bold' if 'BUY' in str(val) or 'SELL' in str(val) else ''
+                    if 'BUY' in str(val):
+                        return 'color: green; font-weight: bold'
+                    elif 'SELL' in str(val):
+                        return 'color: red; font-weight: bold'
+                    return ''
                 
                 def highlight_edge(val):
-                    color = 'green' if float(val.strip('%')) > 10 else 'black'
-                    return f'background-color: rgba(0,255,0,0.1); color: {color}' if float(val.strip('%')) > 10 else ''
+                    if float(val.strip('%')) > 10:
+                        return 'background-color: rgba(0, 255, 0, 0.2); font-weight: bold'
+                    return ''
                 
                 styled_df = df.style.applymap(highlight_trade, subset=['Trade Idea']) \
-                                    .applymap(highlight_edge, subset=['Edge'])
+                                    .applymap(highlight_edge, subset=['Edge']) \
+                                    .format({"Market": lambda x: x})  # allow HTML
                 
                 st.dataframe(styled_df, use_container_width=True)
             else:
