@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import time
 from datetime import datetime
+import pandas as pd
 
 st.set_page_config(page_title="Hollywood Gross Oracle - PG", layout="wide")
 
@@ -52,12 +53,11 @@ with col_adj:
 st.session_state.selected_market = selected_market
 st.session_state.adjustment = adjustment
 
-# Auto-scan logic
+# Auto-scan countdown
 current_time = time.time()
 time_since_last_scan = current_time - st.session_state.last_scan_time
 minutes_left = 10 - int(time_since_last_scan // 60)
 seconds_left = 60 - int(time_since_last_scan % 60)
-
 st.markdown(f"**Next auto-scan in {minutes_left} min {seconds_left} sec** (refreshes automatically)")
 
 # Run scan if button clicked or 10 minutes passed
@@ -88,8 +88,13 @@ if should_scan:
                     size = min(max_risk, vol / 50000 * 1000) if edge > 0.10 else 0
                     trade_idea = f"{dir} ~${size:,.0f}" if edge > 0.10 else "No strong edge"
                     
+                    # Create clickable Polymarket link
+                    market_slug = m.get("slug", "")
+                    polymarket_url = f"https://polymarket.com/event/{market_slug}" if market_slug else "https://polymarket.com"
+                    market_link = f"[{m['question']}]({polymarket_url})"
+                    
                     results.append({
-                        "Market": m["question"],
+                        "Market": market_link,
                         "Volume": f"${vol:,}",
                         "Your Signal": f"{adj:+.2f}",
                         "Crowd Guess": f"${crowd:,.0f}M",
@@ -112,8 +117,13 @@ if should_scan:
                     size = min(max_risk, 10000) if edge > 0.10 else 0
                     trade_idea = f"{dir} ~${size:,.0f}" if edge > 0.10 else "No strong edge"
                     
+                    # Approximate slug for fallback (you can improve this later)
+                    slug = known.lower().replace(" ", "-").replace(":", "").replace("(", "").replace(")", "")
+                    polymarket_url = f"https://polymarket.com/event/{slug}"
+                    market_link = f"[{known}]({polymarket_url})"
+                    
                     results.append({
-                        "Market": known,
+                        "Market": market_link,
                         "Volume": "N/A (fallback)",
                         "Your Signal": f"{adj:+.2f}",
                         "Crowd Guess": f"${crowd:,.0f}M",
@@ -128,7 +138,9 @@ if should_scan:
             
             if results:
                 st.success(f"Showing {len(results)} market(s) — edge highlighted when >10%")
-                st.table(results)
+                # Use pandas for better table with clickable links
+                df = pd.DataFrame(results)
+                st.markdown(df.to_markdown(index=False), unsafe_allow_html=True)
             else:
                 st.info("No markets matched. Try a different adjustment or market.")
         
