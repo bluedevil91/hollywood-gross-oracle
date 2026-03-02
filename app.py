@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 import time
-from datetime import datetime
 import pandas as pd
 
 st.set_page_config(page_title="Hollywood Gross Oracle - PG", layout="wide")
@@ -88,7 +87,7 @@ if should_scan:
                     size = min(max_risk, vol / 50000 * 1000) if edge > 0.10 else 0
                     trade_idea = f"{dir} ~${size:,.0f}" if edge > 0.10 else "No strong edge"
                     
-                    # Create clickable Polymarket link
+                    # Clickable Polymarket link
                     market_slug = m.get("slug", "")
                     polymarket_url = f"https://polymarket.com/event/{market_slug}" if market_slug else "https://polymarket.com"
                     market_link = f"[{m['question']}]({polymarket_url})"
@@ -104,7 +103,7 @@ if should_scan:
                         "Retrading": "Yes – anytime before resolution"
                     })
             
-            # Fallback when API quiet
+            # Fallback
             if not found_in_api or len(results) == 0:
                 st.warning("Limited API results — showing known active markets.")
                 for known in known_markets:
@@ -117,7 +116,6 @@ if should_scan:
                     size = min(max_risk, 10000) if edge > 0.10 else 0
                     trade_idea = f"{dir} ~${size:,.0f}" if edge > 0.10 else "No strong edge"
                     
-                    # Approximate slug for fallback (you can improve this later)
                     slug = known.lower().replace(" ", "-").replace(":", "").replace("(", "").replace(")", "")
                     polymarket_url = f"https://polymarket.com/event/{slug}"
                     market_link = f"[{known}]({polymarket_url})"
@@ -137,10 +135,22 @@ if should_scan:
             st.session_state.last_scan_time = current_time
             
             if results:
-                st.success(f"Showing {len(results)} market(s) — edge highlighted when >10%")
-                # Use pandas for better table with clickable links
+                st.success(f"Showing {len(results)} market(s) — edge >10% highlighted")
                 df = pd.DataFrame(results)
-                st.markdown(df.to_markdown(index=False), unsafe_allow_html=True)
+                
+                # Style the table
+                def highlight_trade(val):
+                    color = 'green' if 'BUY' in str(val) else 'red' if 'SELL' in str(val) else 'black'
+                    return f'color: {color}; font-weight: bold' if 'BUY' in str(val) or 'SELL' in str(val) else ''
+                
+                def highlight_edge(val):
+                    color = 'green' if float(val.strip('%')) > 10 else 'black'
+                    return f'background-color: rgba(0,255,0,0.1); color: {color}' if float(val.strip('%')) > 10 else ''
+                
+                styled_df = df.style.applymap(highlight_trade, subset=['Trade Idea']) \
+                                    .applymap(highlight_edge, subset=['Edge'])
+                
+                st.dataframe(styled_df, use_container_width=True)
             else:
                 st.info("No markets matched. Try a different adjustment or market.")
         
