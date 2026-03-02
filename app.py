@@ -8,7 +8,7 @@ st.set_page_config(page_title="Hollywood Gross Oracle - PG", layout="wide")
 st.title("Hollywood Gross Oracle")
 st.markdown("**Your private Polymarket edge tool** — simulation only. Powered by your insider network.")
 
-# Bankroll & risk
+# Bankroll & risk settings
 col1, col2 = st.columns(2)
 with col1:
     bankroll = st.number_input("Simulation Bankroll ($)", min_value=10000, value=250000, step=50000)
@@ -19,7 +19,7 @@ st.markdown(f"**Max risk per trade: ${max_risk:,.0f}** ({risk_pct}% rule)")
 
 st.info("Simulation mode only — no real money traded. Auto-scans every 10 minutes.")
 
-# Known markets
+# Known markets for dropdown + fallback
 known_markets = [
     "Scream 7 Opening Weekend Box Office",
     "Highest Grossing Movie in 2026",
@@ -134,28 +134,30 @@ if should_scan:
                 st.success(f"Showing {len(results)} market(s) — edge >10% highlighted")
                 df = pd.DataFrame(results)
                 
-                # Hide link column (we'll use it for hyperlinks in Market)
-                df_display = df.drop(columns=["Polymarket Link"])
-                
                 # Style
-                def make_clickable(val, link):
-                    return f'<a href="{link}" target="_blank">{val}</a>'
-                
                 def highlight_trade(val):
                     if 'BUY' in str(val):
-                        return 'background-color: #d4edda; color: #155724; font-weight: bold'
+                        return 'color: green; font-weight: bold'
                     elif 'SELL' in str(val):
-                        return 'background-color: #f8d7da; color: #721c24; font-weight: bold'
+                        return 'color: red; font-weight: bold'
                     return ''
                 
                 def highlight_edge(val):
-                    if float(val.strip('%')) > 10:
-                        return 'background-color: #d4edda; font-weight: bold'
+                    try:
+                        if float(val.strip('%')) > 10:
+                            return 'background-color: rgba(0, 255, 0, 0.2); font-weight: bold'
+                    except:
+                        pass
                     return ''
                 
-                styled_df = df_display.style.applymap(highlight_trade, subset=['Trade Idea']) \
-                                            .applymap(highlight_edge, subset=['Edge']) \
-                                            .format({"Market": lambda x: make_clickable(x, df.loc[df_display.index[df_display['Market'] == x].index[0], "Polymarket Link"])})
+                def make_clickable(val, row):
+                    link = row['Polymarket Link']
+                    return f'<a href="{link}" target="_blank">{val}</a>'
+                
+                # Apply styles
+                styled_df = df.style.applymap(highlight_trade, subset=['Trade Idea']) \
+                                    .applymap(highlight_edge, subset=['Edge']) \
+                                    .format({"Market": lambda x: make_clickable(x, df.loc[df['Market'] == x].iloc[0])})
                 
                 st.dataframe(styled_df, use_container_width=True)
             else:
